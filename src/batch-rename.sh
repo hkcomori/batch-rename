@@ -6,6 +6,8 @@
 
 readonly VERSION="0.1.0"
 readonly FIND_EXCLUDE="-regextype posix-egrep ! -regex '[\.]{1,2}'"
+readonly LOCKFILE="${TMP}/batch-rename.lock"
+readonly FIFOFILE="${TMP}/batch-rename.pipe"
 
 set -u -o pipefail
 
@@ -22,6 +24,7 @@ Options:
   -n, --no-clobber      do not overwrite an existing file
   -r, --recursive       edit directory recursively
   -v, --verbose         explain what is being done
+  -w, --wait=SECONDS    wait SECONDS to receive path from other process.
   -h, --help            display this help and exit
   -V, --version         output version information and exit
   --                    Assign any remaining arguments to FILE(s).
@@ -45,7 +48,28 @@ dry_run() {
   echo "rename \"${1}\" -> \"${2}\""
 }
 
-while getopts ed:fhnrvV-: opt; do
+ipc() {
+  if [[ "${seconds}" -gt 0 ]]; then
+    if (set -o noclobber; echo "$$" > "${LOCKFILE}") 2> /dev/null; then
+      # Receive FILE(s) from other processes
+      garbage_files+=("${LOCKFILE}")
+      mkfifo "${FIFOFILE}" && garbage_files+=("${FIFOFILE}")
+      while timeout "${seconds}" cat "${FIFOFILE}"; do
+        :
+      done
+      rm -rf "${LOCKFILE}" "${FIFOFILE}"
+    else
+      # Send FILE(s) to the reader process
+      while [[ -e "${LOCKFILE}" ]] && [[ ! -e "${FIFOFILE}" ]]; do
+        :   # Wait for the FIFOFILE create
+      done
+      cat - > "${FIFOFILE}"
+    fi
+  fi
+  cat -
+}
+
+while getopts ed:fhnrvw:V-: opt; do
   optarg="${OPTARG}"
   [[ "${opt}" == "-" ]] \
     && opt="-${OPTARG%%=*}" \
@@ -59,6 +83,11 @@ while getopts ed:fhnrvV-: opt; do
     -r|--recursive)   find_opts="" ;;
     -x|--dry-run)     readonly xflag=true ;;
     -v|--verbose)     readonly vflag=true ;;
+    -w|--wait)
+      [[ "${optarg}" -gt 0 ]] \
+        && seconds=${optarg} \
+        || error "Unexpected SECONDS '${optarg}'"
+      ;;
     -V|--version)     echo ${VERSION} ;;
     --)               break ;;
     -h|--help)        usage ;;
@@ -84,15 +113,18 @@ readonly dstlist=$(mktemp) && garbage_files+=("${dstlist}")
 
 # Output target file names to temporary files
 readonly lines=$(find "$@" ${find_opts:--maxdepth 0} ${FIND_EXCLUDE} \
+  | ipc \
   | sort \
   | tee "${srclist}" "${dstlist}" \
   | wc -l) \
   || exit $?
 
-# Open the destination list by EDITOR and wait close it
-${EDITOR:-nano} "${dstlist}" \
-  && [[ "$(wc -l <${dstlist})" -eq "${lines}" ]] \
-  || error "number of FILE(s) missmatched"
+if [[ "${lines}" -gt 0 ]]; then
+  # Open the destination list by EDITOR and wait close it
+  ${EDITOR:-nano} "${dstlist}" \
+    && [[ "$(wc -l <${dstlist})" -eq "${lines}" ]] \
+    || error "number of FILE(s) missmatched"
+fi
 
 # Read file names from temporary files and rename target files
 diff -y --suppress-common-lines "${srclist}" "${dstlist}" \
