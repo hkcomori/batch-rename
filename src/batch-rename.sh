@@ -100,6 +100,8 @@ ${EDITOR:-nano} "${dstlist}" \
   | while IFS=$'\t' read -r src dst; do
     src=$(${cygpath} "${src}")
     dst=$(${cygpath} "${dst}")
+    dstdir=$(dirname ${dst})
+    [[ -d "${dstdir}" ]] || mkdir -p "${dstdir}"
     ${mv} "${src}" "${dst}" \
       || error "Unable to rename '${src}' to '${dst}'"
   done
