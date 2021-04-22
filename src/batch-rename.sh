@@ -42,7 +42,7 @@ teardown() {
 }
 
 dry_run() {
-  echo "rename \"${1}\" -> \"${2}\""
+  echo "renamed '${1}' -> '${2}'"
 }
 
 while getopts e:dfhnrxvV-: opt; do
