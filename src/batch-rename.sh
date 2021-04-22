@@ -95,7 +95,7 @@ ${EDITOR:-nano} "${dstlist}" \
   || error "number of FILE(s) missmatched"
 
 # Read file names from temporary files and rename target files
-diff -y --suppress-common-lines "${srclist}" "${dstlist}" \
+(diff -y --suppress-common-lines "${srclist}" "${dstlist}" || true) \
   | sed -re 's/\s+\|\s+/\t/' \
   | while IFS=$'\t' read -r src dst; do
     src=$(${cygpath} "${src}")
