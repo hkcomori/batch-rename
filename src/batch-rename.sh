@@ -45,8 +45,8 @@ dry_run() {
   echo "rename \"${1}\" -> \"${2}\""
 }
 
-while getopts ed:fhnrvV-: opt; do
-  optarg="${OPTARG}"
+while getopts e:dfhnrxvV-: opt; do
+  [[ -n "${OPTARG:+defined}" ]] && optarg="${OPTARG}"
   [[ "${opt}" == "-" ]] \
     && opt="-${OPTARG%%=*}" \
     && optarg="${OPTARG/${OPTARG%%=*}/}" \
@@ -56,7 +56,7 @@ while getopts ed:fhnrvV-: opt; do
     -d)               find_opts="-mindepth 1 -maxdepth 1" ;;
     -f|--force)       mv_opts="-f" ;;
     -n|--no-clobber)  mv_opts="-n" ;;
-    -r|--recursive)   find_opts="" ;;
+    -r|--recursive)   find_opts=" " ;;
     -x|--dry-run)     readonly xflag=true ;;
     -v|--verbose)     readonly vflag=true ;;
     -V|--version)     echo ${VERSION} ;;
