@@ -1,0 +1,27 @@
+name: Tests
+
+on:
+  push:
+    branches:
+      - main
+      - develop
+      - 'feature/tests'
+  pull_request:
+
+jobs:
+  test:
+    name: Tests for Linux or MacOS
+    strategy:
+      matrix:
+        platform: ['ubuntu-latest', 'macos-latest']
+    runs-on: ${{ matrix.platform }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+        with:
+          ref: ${{ github.ref }}
+      - name: Install test framework
+        run: |
+          git clone https://github.com/shellspec/shellspec.git
+      - name: Run Tests
+        run: shellspec/shellspec
